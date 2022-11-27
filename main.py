@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     T26 = SerialOptimisticTransaction(26, [
         ReadQuery("binary/B"),
-        FunctionQuery("binary/B", function=lambda B: B - 50),
+        FunctionQuery("binary/B", function=lambda B: B + 50),
         ReadQuery("binary/A"),
         FunctionQuery("binary/A", function=lambda A: A + 50),
         WriteQuery("binary/B"),
@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     concurrencyManager = SerialOptimisticControl(
         [T25, T26],
-        [25, 25, 26, 26, 26, 26, 26, 26, 25, 25]
+        [25, 25, 26, 26, 26, 26, 25, 25, 26, 26]
     )
 
     concurrencyManager.run()

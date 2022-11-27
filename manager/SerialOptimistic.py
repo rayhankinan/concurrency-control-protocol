@@ -31,12 +31,13 @@ class SerialOptimisticTransaction(Transaction):
     def getEnd(self) -> int:
         return self.endTimestamp
 
+    # TODO: Rollback Bug
     def validationTest(self, counterTimestamp: int, other: SerialOptimisticTransaction) -> bool:
         if self.timestamp <= other.timestamp:
             return True
         if self.timestamp >= other.endTimestamp:
             return True
-        if self.timestamp < other.endTimestamp and counterTimestamp > other.endTimestamp and self.dataItemRead.intersection(other.dataItemWritten) == set():
+        if self.timestamp < other.endTimestamp and counterTimestamp >= other.endTimestamp and self.dataItemRead.intersection(other.dataItemWritten) == set():
             return True
         return False
 
@@ -85,9 +86,8 @@ class SerialOptimisticControl(ConcurrencyControl):
                         counter, self.getTransaction(timestamp)
                     )
 
-                # TODO: Rollback Bug
                 if not valid:
-                    print(f"ROLLBACK : {currentTimestamp}")
+                    print(f"ROLLBACK : {currentTimestamp}")  # DELETE THIS
                     tempSchedule = list(filter(
                         lambda X: X != currentTimestamp, tempSchedule
                     ))
