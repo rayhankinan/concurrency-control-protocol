@@ -34,5 +34,6 @@ class Transaction:
         currentQuery.execute(*currentData)
         self.queryIndex += 1
 
-    def resetIndex(self) -> None:
+    def reset(self, newTimestamp) -> None:
         self.queryIndex = 0
+        self.timestamp = newTimestamp

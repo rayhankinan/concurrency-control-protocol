@@ -10,13 +10,13 @@ class FileAccess:
         content = file.read()
         file.close()
 
-        return int.from_bytes(content, "big")
+        return int.from_bytes(content, byteorder="big", signed=False)
 
     def write(self, value: int) -> None:
         file = open(self.filename, "wb")
 
         length = math.ceil(value / (1 << 8))
-        content = value.to_bytes(length, "big")
+        content = value.to_bytes(length, byteorder="big", signed=False)
         file.write(content)
 
         file.close()
