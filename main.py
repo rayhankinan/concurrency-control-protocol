@@ -5,6 +5,7 @@ if __name__ == "__main__":
     T = Transaction(1, [
         ReadQuery("binary/A", "binary/B"),
         FunctionQuery("binary/A", "binary/B", function=lambda A, B: A + B),
+        DisplayQuery("binary/A"),
         WriteQuery("binary/A")
     ])
 
