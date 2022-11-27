@@ -1,23 +1,9 @@
-from __future__ import annotations
-import math
-
-
 class Data:
-    def __init__(self, filename: str) -> None:
-        self.filename: str = filename
+    def __init__(self) -> None:
+        self.value: int = None
 
-    def read(self) -> int:
-        file = open(self.filename, "rb")
-        content = file.read()
-        file.close()
+    def getValue(self) -> int:
+        return self.value
 
-        return int.from_bytes(content, "big")
-
-    def write(self, value: int) -> None:
-        file = open(self.filename, "wb")
-
-        length = math.ceil(value / (1 << 8))
-        content = value.to_bytes(length, "big")
-        file.write(content)
-
-        file.close()
+    def setValue(self, value: int) -> None:
+        self.value = value

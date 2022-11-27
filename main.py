@@ -1,9 +1,12 @@
-from process.Data import Data
+from process.FileAccess import FileAccess
 
 
 if __name__ == "__main__":
-    A = Data("binary/A")
+    A = FileAccess("binary/A")
     content = A.read()
+
     print(content)
-    content = 15
+    content += 15
+    print(content)
+
     A.write(content)

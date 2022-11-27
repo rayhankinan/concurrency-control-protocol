@@ -1,2 +1,3 @@
 class ConcurrencyControl:
-    pass
+    def run(self):
+        raise NotImplementedError()
