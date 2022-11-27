@@ -7,5 +7,8 @@ class ConcurrencyControl:
         self.listOfTransaction = listOfTransaction
         self.schedule = schedule
 
-    def run():
+    def getTransaction(self, timestamp: int) -> Transaction:
+        return next(transaction for transaction in self.listOfTransaction if transaction.timestamp == timestamp)
+
+    def run(self):
         raise NotImplementedError()

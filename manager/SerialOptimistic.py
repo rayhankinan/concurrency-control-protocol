@@ -45,5 +45,42 @@ class SerialOptimisticTransaction(Transaction):
 
 
 class SerialOptimisticControl(ConcurrencyControl):
-    def run():
-        pass
+    def __init__(self, listOfTransaction: List[SerialOptimisticTransaction], schedule: List[int]) -> None:
+        super().__init__(listOfTransaction, schedule)
+
+    def getTransaction(self, timestamp: int) -> SerialOptimisticTransaction:
+        return super().getTransaction(timestamp)
+
+    def run(self):
+        tempSchedule: List[int] = [timestamp for timestamp in self.schedule]
+        activeTimestamp: List[int] = []
+
+        while tempSchedule:
+            currentTimestamp = tempSchedule.pop(0)
+
+            if currentTimestamp not in activeTimestamp:
+                activeTimestamp.append(currentTimestamp)
+
+            transaction = self.getTransaction(currentTimestamp)
+            query = transaction.getCurrentQuery()
+
+            if type(query) is WriteQuery or type(query) is DisplayQuery:
+                valid = True
+                for timestamp in activeTimestamp:
+                    valid = transaction.validationTest(
+                        self.getTransaction(timestamp)
+                    )
+
+                if not valid:
+                    # Rollback
+                    transaction.resetIndex()
+                    tempSchedule = list(filter(
+                        lambda X: X == currentTimestamp, tempSchedule
+                    ))
+                    tempSchedule.extend(
+                        currentTimestamp for _ in range(transaction.getLength())
+                    )
+                else:
+                    transaction.executeCurrentQuery()
+            else:
+                transaction.executeCurrentQuery()
