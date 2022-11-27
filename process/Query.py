@@ -1,11 +1,15 @@
 from typing import Callable
-from FileAccess import FileAccess
-from Data import Data
+from process.FileAccess import FileAccess
+from process.Data import Data
 
 
 class Query:
     def __init__(self, filename: str) -> None:
+        self.filename = filename
         self.fileAccess = FileAccess(filename)
+
+    def getFilename(self) -> str:
+        return self.filename
 
     def execute(self) -> None:
         raise NotImplementedError()
@@ -34,3 +38,11 @@ class FunctionQuery(Query):
 
     def execute(self, data: Data) -> None:
         data.setValue(self.function(data.getValue()))
+
+
+class DisplayQuery(Query):
+    def __init__(self, filename: str) -> None:
+        super().__init__(filename)
+
+    def execute(self, data: Data) -> None:
+        print(f"{self.filename}: {data.getValue()}")

@@ -1,11 +1,14 @@
-from typing import List
-from Query import Query
+from typing import Dict, List
+from process.Query import Query
+from process.Data import Data
 
 
 class Transaction:
     def __init__(self, id: int, listOfQuery: List[Query]) -> None:
         self.id = id
         self.listOfQuery = listOfQuery
+        self.queryIndex = 0
+        self.dictData: Dict[str, Data] = dict()
 
     def getId(self):
         return self.id
@@ -13,5 +16,13 @@ class Transaction:
     def getLength(self) -> int:
         return len(self.listOfQuery)
 
-    def getQuery(self, index: int) -> Query:
-        return self.listOfQuery[index]
+    def getCurrentQuery(self) -> Query:
+        return self.listOfQuery[self.queryIndex]
+
+    def executeCurrentQuery(self) -> None:
+        currentQuery = self.listOfQuery[self.queryIndex]
+        currentData = self.dictData.setdefault(
+            currentQuery.getFilename(), Data())
+
+        currentQuery.execute(currentData)
+        self.queryIndex += 1

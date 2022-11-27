@@ -1,12 +1,15 @@
-from process.FileAccess import FileAccess
-
+from process.Transaction import Transaction
+from process.Query import ReadQuery, WriteQuery, FunctionQuery, DisplayQuery
 
 if __name__ == "__main__":
-    A = FileAccess("binary/A")
-    content = A.read()
+    T = Transaction(1, [
+        ReadQuery("binary/A"),
+        DisplayQuery("binary/A"),
+        FunctionQuery("binary/A", lambda A: A + 50),
+        DisplayQuery("binary/A"),
+        WriteQuery("binary/A")
+    ])
 
-    print(content)
-    content += 15
-    print(content)
-
-    A.write(content)
+    length = T.getLength()
+    for i in range(length):
+        T.executeCurrentQuery()
