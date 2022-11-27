@@ -44,7 +44,7 @@ class WriteQuery(Query):
 class FunctionQuery(Query):
     def __init__(self, *args: str, **kwargs: Callable[..., int]) -> None:
         super().__init__(*args)
-        self.function = kwargs.get("function", lambda *X: X[0])
+        self.function = kwargs.get("function", lambda *args: args[0])
 
     def execute(self, *args: Data) -> None:
         value: List[int] = []
@@ -56,11 +56,15 @@ class FunctionQuery(Query):
 class DisplayQuery(Query):
     def __init__(self, *args: str, **kwargs: Callable[..., int]) -> None:
         super().__init__(*args)
-        self.function = kwargs.get(
-            "function", lambda *X: X[0] if len(X) == 1 else X)
+        self.function = kwargs.get("function", lambda *args: args)
 
     def execute(self, *args: Data) -> None:
         value: List[int] = []
         for data in args:
             value.append(data.getValue())
-        print(self.function(*value))
+
+        result = self.function(*value)
+        if type(result) is tuple:
+            print(" ".join(map(str, result)))
+        if type(result) is int:
+            print(result)
