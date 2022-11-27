@@ -21,8 +21,11 @@ class Transaction:
 
     def executeCurrentQuery(self) -> None:
         currentQuery = self.listOfQuery[self.queryIndex]
-        currentData = self.dictData.setdefault(
-            currentQuery.getFilename(), Data())
+        currentFileNames = currentQuery.getFileNames()
+        currentData: List[Data] = []
 
-        currentQuery.execute(currentData)
+        for filename in currentFileNames:
+            currentData.append(self.dictData.setdefault(filename, Data()))
+
+        currentQuery.execute(*currentData)
         self.queryIndex += 1

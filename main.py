@@ -3,10 +3,8 @@ from process.Query import ReadQuery, WriteQuery, FunctionQuery, DisplayQuery
 
 if __name__ == "__main__":
     T = Transaction(1, [
-        ReadQuery("binary/A"),
-        DisplayQuery("binary/A"),
-        FunctionQuery("binary/A", lambda A: A + 50),
-        DisplayQuery("binary/A"),
+        ReadQuery("binary/A", "binary/B"),
+        FunctionQuery("binary/A", "binary/B", function=lambda A, B: A + B),
         WriteQuery("binary/A")
     ])
 
