@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     concurrencyManager = SerialOptimisticControl(
         [T25, T26],
-        [25, 25, 26, 26, 26, 26, 25, 25, 26, 26]
+        [25, 25, 26, 26, 26, 26, 26, 26, 25, 25]
     )
 
     concurrencyManager.run()

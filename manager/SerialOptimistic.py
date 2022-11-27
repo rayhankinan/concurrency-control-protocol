@@ -95,7 +95,8 @@ class SerialOptimisticControl(ConcurrencyControl):
                         lambda X: X != currentTimestamp, activeTimestamp
                     ))
 
-                    newTimestamp = currentTimestamp + counter
+                    newTimestamp = currentTimestamp + \
+                        counter + len(activeTimestamp)
                     transaction.reset(newTimestamp)
                     tempSchedule.extend(
                         newTimestamp for _ in range(transaction.getLength())
