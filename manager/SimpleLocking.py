@@ -1,5 +1,5 @@
-from ConcurrencyControl import ConcurrencyControl
+from manager.ConcurrencyControl import ConcurrencyControl
 
 
-class SimpleLocking(ConcurrencyControl):
+class SimpleLockingControl(ConcurrencyControl):
     pass

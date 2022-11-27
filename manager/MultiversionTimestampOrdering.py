@@ -1,5 +1,5 @@
-from ConcurrencyControl import ConcurrencyControl
+from manager.ConcurrencyControl import ConcurrencyControl
 
 
-class MultiversionTimestampOrdering(ConcurrencyControl):
+class MultiversionControl(ConcurrencyControl):
     pass

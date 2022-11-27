@@ -1,4 +1,5 @@
-from typing import Callable, List, Tuple
+from typing import Callable, List
+
 from process.FileAccess import FileAccess
 from process.Data import Data
 
