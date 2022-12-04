@@ -4,6 +4,7 @@ class SimpleLockingControl():
         self.lockTable = {} # key = data item, value = transaction that has the lock for that data item, example: {'X': '1', 'Y': '2'}
         self.waitingQueue = [] # example: ['R1(X)', 'W2(X)', 'W2(Y)', 'W3(Y)', 'W1(X)', 'C1', 'C2', 'C3']
         self.finalSchedule = [] # example: ['R1(X)', 'W2(X)', 'W2(Y)', 'W3(Y)', 'W1(X)', 'C1', 'C2', 'C3']
+        self.previousWaitingQueue = []
 
     def lock(self, transactionId, dataItem):
         # add the lock to the lock table
@@ -50,11 +51,15 @@ class SimpleLockingControl():
                         self.finalSchedule.append(operation)
                     else:
                         # add to waiting queue every operation for the transaction
-                        self.waitingQueue.append(operation)
+                        temp = []
+                        temp.append(operation)
                         for op in self.schedule:
                             if op[1] == transactionId:
-                                self.schedule.remove(op)
-                                self.waitingQueue.append(op)
+                                temp.append(op)
+                        for op in temp[1:]:
+                            self.schedule.remove(op)
+                        self.waitingQueue += temp
+
             if operation[0] == 'C':
                 transactionId = operation[1]
                 # remove all locks for the transaction
@@ -69,10 +74,12 @@ class SimpleLockingControl():
             if verbose:
                 self.printState()
         while len(self.waitingQueue) > 0:
-            op = self.waitingQueue.pop(0)
-            self.finalSchedule.append(op)
-            if verbose:
-                self.printState()
+            # if the waiting queue is the same as the previous one, then there is a deadlock
+            if self.waitingQueue == self.previousWaitingQueue:
+                raise Exception("Deadlock Detected")
+            self.previousWaitingQueue = self.waitingQueue
+            self.run(verbose)
+
         return self.finalSchedule
 
 
@@ -82,8 +89,22 @@ if __name__ == '__main__':
     sampleInput = sampleInput.split(";")
     sampleInput = [x.strip() for x in sampleInput]
     sampleInput = [x for x in sampleInput if x != ""]
-    print(f"{'Input':20} : {sampleInput}")
 
-    control = SimpleLockingControl(sampleInput)
-    control.run()
-    print(f"{'Final Schedule':20} : {control.finalSchedule}")
+    sampleInput2 = "R1(X); R2(Y); R1(Y); W2(Y); W1(X); C1; C2;"
+    sampleInput2 = sampleInput2.split(";")
+    sampleInput2 = [x.strip() for x in sampleInput2]
+    sampleInput2 = [x for x in sampleInput2 if x != ""]
+
+    sampleInput3 = "R1(X); R2(Y); R1(Y); R2(X); C1; C2;" # deadlock
+    sampleInput3 = sampleInput3.split(";")
+    sampleInput3 = [x.strip() for x in sampleInput3]
+    sampleInput3 = [x for x in sampleInput3 if x != ""]
+
+    print(f"{'Input':20} : {sampleInput3}")
+
+    control = SimpleLockingControl(sampleInput3)
+    try:
+        control.run()
+        print(f"{'Final Schedule':20} : {control.finalSchedule}")
+    except Exception as e:
+        print (e)
