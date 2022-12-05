@@ -1,10 +1,11 @@
 from __future__ import annotations
 from typing import List, Set
+import inspect
 import sys
 
 from manager.ConcurrencyControl import ConcurrencyControl
 from process.Transaction import Transaction
-from process.Query import Query, ReadQuery, WriteQuery, FunctionQuery, DisplayQuery
+from process.Query import Query, ReadQuery, WriteQuery, DisplayQuery, FunctionQuery
 
 
 class SerialOptimisticTransaction(Transaction):
@@ -18,7 +19,6 @@ class SerialOptimisticTransaction(Transaction):
         self.dataItemWritten: Set[str] = set()
         self.dataItemRead: Set[str] = set()
 
-    # TODO: Rollback Bug
     def validationTest(self, counterTimestamp: int, other: SerialOptimisticTransaction) -> bool:
         if self.startTimestamp <= other.startTimestamp:
             return True
@@ -29,20 +29,32 @@ class SerialOptimisticTransaction(Transaction):
         return False
 
     def nextQuery(self) -> None:
-        if type(self.getCurrentQuery()) is WriteQuery:
-            for filename in self.getCurrentQuery().getFileNames():
+        currentQuery = self.getCurrentQuery()
+        if type(currentQuery) is WriteQuery:
+            for filename in currentQuery.getFileNames():
                 self.dataItemWritten.add(filename)
-        if type(self.getCurrentQuery()) is ReadQuery:
-            for filename in self.getCurrentQuery().getFileNames():
+                print(f"WRITE: {filename}")
+
+        if type(currentQuery) is ReadQuery:
+            for filename in currentQuery.getFileNames():
                 self.dataItemRead.add(filename)
+                print(f"READ: {filename}")
+
+        if type(currentQuery) is DisplayQuery:
+            print(
+                f"DISPLAY: {inspect.getsource(currentQuery.function).replace(',', '').strip()}")
+
+        if type(currentQuery) is FunctionQuery:
+            print(
+                f"FUNCTION: {inspect.getsource(currentQuery.function).replace(',', '').strip()}")
 
         super().nextQuery()
 
     def rollback(self, newTimestamp: int) -> None:
-        super().rollback(newTimestamp)
-
         self.dataItemWritten = set()
         self.dataItemRead = set()
+
+        super().rollback(newTimestamp)
 
 
 class SerialOptimisticControl(ConcurrencyControl):
@@ -64,38 +76,33 @@ class SerialOptimisticControl(ConcurrencyControl):
                 activeTimestamp.append(currentTimestamp)
 
             transaction = self.getTransaction(currentTimestamp)
-            query = transaction.getCurrentQuery()
 
-            if type(query) is WriteQuery or type(query) is DisplayQuery:
-                valid = True
-                for timestamp in activeTimestamp:
-                    valid = valid and transaction.validationTest(
-                        currentTimestamp +
-                        counter, self.getTransaction(timestamp)
-                    )
+            if transaction.isFinished():
+                valid = all(transaction.validationTest(
+                    currentTimestamp +
+                    counter, self.getTransaction(timestamp)
+                ) for timestamp in activeTimestamp)
 
-                if not valid:
-                    print(f"ROLLBACK : {currentTimestamp}")  # DELETE THIS
+                if valid:
+                    transaction.commit()
+                    transaction.endTimestamp = currentTimestamp + counter
+
+                else:
                     tempSchedule = list(filter(
                         lambda X: X != currentTimestamp, tempSchedule
                     ))
                     activeTimestamp = list(filter(
                         lambda X: X != currentTimestamp, activeTimestamp
                     ))
-
                     newTimestamp = currentTimestamp + \
                         counter + len(activeTimestamp)
+
+                    print(f"ROLLBACK : {currentTimestamp}")
                     transaction.rollback(newTimestamp)
+
                     tempSchedule.extend(
-                        newTimestamp for _ in range(transaction.getLength())
-                    )
-                else:
-                    transaction.nextQuery()
+                        newTimestamp for _ in range(transaction.getLength()))
             else:
                 transaction.nextQuery()
-
-            if transaction.isFinished():
-                transaction.commit()
-                transaction.endTimestamp = currentTimestamp + counter
 
             counter += 1
