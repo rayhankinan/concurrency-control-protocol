@@ -1,6 +1,4 @@
 from typing import Callable, Dict, List
-import inspect
-import math
 
 from manager.ConcurrencyControl import ConcurrencyControl
 from process.Transaction import Transaction
@@ -87,7 +85,7 @@ class MultiversionAccess(FileAccess):
             if timestamp < MultiversionAccess.listOfVersion[self.filename][index].readTimestamp:
                 raise Exception("ROLLBACK")
 
-            elif timestamp == MultiversionAccess.listOfVersion[self.filename][index].readTimestamp:
+            elif timestamp == MultiversionAccess.listOfVersion[self.filename][index].writeTimestamp:
                 MultiversionAccess.listOfVersion[self.filename][index].setValue(
                     value
                 )
@@ -101,12 +99,19 @@ class MultiversionAccess(FileAccess):
                     multiversion
                 )
 
-    def commit(self):
+    def commit(self, timestamp: int):
         if len(MultiversionAccess.listOfVersion.setdefault(self.filename, [])) == 0:
             # Do nothing
             pass
         else:
-            multiversion = MultiversionAccess.listOfVersion[self.filename][-1]
+            index = 0
+            for i in range(len(MultiversionAccess.listOfVersion[self.filename])):
+                if MultiversionAccess.listOfVersion[self.filename][i].writeTimestamp <= timestamp:
+                    index = i
+                else:
+                    break
+
+            multiversion = MultiversionAccess.listOfVersion[self.filename][index]
             value = multiversion.getValue()
             super().write(value)
 
@@ -115,7 +120,7 @@ class MultiversionQuery(Query):
     def execute(self, timestamp: int, *args: Data) -> None:
         raise NotImplementedError()
 
-    def commit(self, *args: Data):
+    def commit(self, timestamp: int, *args: Data):
         raise NotImplementedError()
 
 
@@ -135,10 +140,11 @@ class MultiversionReadQuery(MultiversionQuery, ReadQuery):
             data.setValue(multiversionAccess.read(timestamp))
             print("[READ]")
 
-    def commit(self, *args: Data):
+    def commit(self, timestamp: int, *args: Data):
         for i in range(len(args)):
+            data = args[i]
             multiversionAccess = self.multiversionAccesses[i]
-            multiversionAccess.commit()
+            data.setValue(multiversionAccess.read(timestamp))
 
 
 class MultiversionWriteQuery(MultiversionQuery, WriteQuery):
@@ -157,10 +163,12 @@ class MultiversionWriteQuery(MultiversionQuery, WriteQuery):
             multiversionAccess.write(data.getValue(), timestamp)
             print("[WRITE]")
 
-    def commit(self, *args: Data):
+    def commit(self, timestamp: int, *args: Data):
         for i in range(len(args)):
+            data = args[i]
             multiversionAccess = self.multiversionAccesses[i]
-            multiversionAccess.commit()
+            multiversionAccess.write(data.getValue(), timestamp)
+            multiversionAccess.commit(timestamp)
 
 
 class MultiversionFunctionQuery(MultiversionQuery, FunctionQuery):
@@ -176,7 +184,7 @@ class MultiversionFunctionQuery(MultiversionQuery, FunctionQuery):
 
         print("[FUNCTION]")
 
-    def commit(self, *args: Data) -> None:
+    def commit(self, timestamp: int, *args: Data) -> None:
         value: List[int] = []
         for data in args:
             value.append(data.getValue())
@@ -191,7 +199,7 @@ class MultiversionDisplayQuery(MultiversionQuery, DisplayQuery):
     def execute(self, timestamp: int, *args: Data) -> None:
         print("[DISPLAY]")
 
-    def commit(self, *args: Data) -> None:
+    def commit(self, timestamp: int, *args: Data) -> None:
         value: List[int] = []
         for data in args:
             value.append(data.getValue())
@@ -218,11 +226,13 @@ class MultiversionTransaction(Transaction):
                 )
             elif type(query) is FunctionQuery:
                 newListOfQuery.append(
-                    MultiversionFunctionQuery(*query.getFileNames())
+                    MultiversionFunctionQuery(
+                        *query.getFileNames(), function=query.function)
                 )
             elif type(query) is DisplayQuery:
                 newListOfQuery.append(
-                    MultiversionDisplayQuery(*query.getFileNames())
+                    MultiversionDisplayQuery(
+                        *query.getFileNames(), function=query.function)
                 )
             else:
                 raise Exception("TYPE INVALID")
@@ -242,6 +252,8 @@ class MultiversionTransaction(Transaction):
         super().nextQuery()
 
     def commit(self) -> None:
+        MultiversionAccess.listOfVersion.clear()
+
         for i in range(self.getLength()):
             currentQuery: MultiversionQuery = self.listOfQuery[i]
             currentFileNames = currentQuery.getFileNames()
@@ -250,7 +262,7 @@ class MultiversionTransaction(Transaction):
             for filename in currentFileNames:
                 currentData.append(self.dictData.setdefault(filename, Data()))
 
-            currentQuery.commit(*currentData)
+            currentQuery.commit(self.getStartTimestamp(), *currentData)
 
 
 class MultiversionControl(ConcurrencyControl):
@@ -260,41 +272,44 @@ class MultiversionControl(ConcurrencyControl):
     def run(self):
         tempSchedule: List[int] = [timestamp for timestamp in self.schedule]
         activeTimestamp: List[int] = []
+        maxTimestamp = 0
 
         while tempSchedule:
             currentTimestamp = tempSchedule.pop(0)
 
             if currentTimestamp not in activeTimestamp:
                 activeTimestamp.append(currentTimestamp)
+                maxTimestamp = max(maxTimestamp, currentTimestamp)
+
                 print(f"[BEGIN TRANSACTION {currentTimestamp}]")
 
             transaction: MultiversionTransaction = self.getTransaction(
                 currentTimestamp
             )
 
-            if transaction.isFinished():
-                try:
+            try:
+                transaction.nextQuery()
+
+                if transaction.isFinished():
                     print(
                         f"[COMMIT TRANSACTION {transaction.getStartTimestamp()}]"
                     )
                     print("RESULT:")
                     transaction.commit()
 
-                except:
-                    tempSchedule = list(filter(
-                        lambda X: X != currentTimestamp, tempSchedule
-                    ))
-                    activeTimestamp = list(filter(
-                        lambda X: X != currentTimestamp, activeTimestamp
-                    ))
-                    newTimestamp = max(activeTimestamp) + 1
+            except:
+                tempSchedule = list(filter(
+                    lambda X: X != currentTimestamp, tempSchedule
+                ))
+                activeTimestamp = list(filter(
+                    lambda X: X != currentTimestamp, activeTimestamp
+                ))
 
-                    print(f"[ROLLBACK TRANSACTION {currentTimestamp}]")
-                    transaction.rollback(newTimestamp)
+                newTimestamp = maxTimestamp + 1
 
-                    tempSchedule.extend(
-                        newTimestamp for _ in range(transaction.getLength())
-                    )
+                print(f"[ROLLBACK TRANSACTION {currentTimestamp}]")
+                transaction.rollback(newTimestamp)
 
-            else:
-                transaction.nextQuery()
+                tempSchedule.extend(
+                    newTimestamp for _ in range(transaction.getLength())
+                )

@@ -3,27 +3,29 @@ from manager.SerialOptimistic import SerialOptimisticTransaction, SerialOptimist
 from manager.MultiversionTimestampOrdering import MultiversionTransaction, MultiversionControl
 
 if __name__ == "__main__":
-    T25 = SerialOptimisticTransaction(25, [
+    T25 = MultiversionTransaction(25, [
         ReadQuery("binary/B"),
-        WriteQuery("binary/B"),
+        DisplayQuery("binary/B", function=lambda B: B),
         ReadQuery("binary/A"),
-        WriteQuery("binary/A")
+        DisplayQuery("binary/A", function=lambda A: A),
     ])
 
-    T26 = SerialOptimisticTransaction(26, [
+    T26 = MultiversionTransaction(26, [
         ReadQuery("binary/B"),
         DisplayQuery("binary/B", function=lambda B: B),
         FunctionQuery("binary/B", function=lambda B: B + 50),
+        DisplayQuery("binary/B", function=lambda B: B),
         WriteQuery("binary/B"),
         ReadQuery("binary/A"),
         DisplayQuery("binary/A", function=lambda A: A),
         FunctionQuery("binary/A", function=lambda A: A + 50),
+        DisplayQuery("binary/A", function=lambda A: A),
         WriteQuery("binary/A")
     ])
 
-    concurrencyManager = SerialOptimisticControl(
+    concurrencyManager = MultiversionControl(
         [T25, T26],
-        [25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 25, 25]
+        [25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 25, 25]
     )
 
     concurrencyManager.run()
