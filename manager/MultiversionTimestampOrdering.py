@@ -42,7 +42,7 @@ class MultiversionAccess(FileAccess):
         self.initialValue = super().read()
 
     def read(self, timestamp: int) -> int:
-        if len(MultiversionAccess.listOfVersion[self.filename]) == 0:
+        if len(MultiversionAccess.listOfVersion.setdefault(self.filename, [])) == 0:
             multiversion = Multiversion()
             multiversion.setValue(self.initialValue)
             multiversion.setWriteTimestamp(0)
@@ -55,7 +55,6 @@ class MultiversionAccess(FileAccess):
 
         else:
             index = 0
-
             for i in range(len(MultiversionAccess.listOfVersion[self.filename])):
                 if MultiversionAccess.listOfVersion[self.filename][i].writeTimestamp <= timestamp:
                     index = i
@@ -68,7 +67,7 @@ class MultiversionAccess(FileAccess):
             return MultiversionAccess.listOfVersion[self.filename][index].getValue()
 
     def write(self, value: int, timestamp: int) -> None:
-        if len(MultiversionAccess.listOfVersion[self.filename]) == 0:
+        if len(MultiversionAccess.listOfVersion.setdefault(self.filename, [])) == 0:
             multiversion = Multiversion()
             multiversion.setValue(value)
             multiversion.setWriteTimestamp(timestamp)
@@ -89,7 +88,9 @@ class MultiversionAccess(FileAccess):
                 raise Exception("ROLLBACK")
 
             elif timestamp == MultiversionAccess.listOfVersion[self.filename][index].readTimestamp:
-                MultiversionAccess.listOfVersion[self.filename][index] = value
+                MultiversionAccess.listOfVersion[self.filename][index].setValue(
+                    value
+                )
 
             else:
                 multiversion = Multiversion()
@@ -101,7 +102,7 @@ class MultiversionAccess(FileAccess):
                 )
 
     def commit(self):
-        if len(MultiversionAccess.listOfVersion[self.filename]) == 0:
+        if len(MultiversionAccess.listOfVersion.setdefault(self.filename, [])) == 0:
             # Do nothing
             pass
         else:
@@ -132,6 +133,7 @@ class MultiversionReadQuery(MultiversionQuery, ReadQuery):
             data = args[i]
             multiversionAccess = self.multiversionAccesses[i]
             data.setValue(multiversionAccess.read(timestamp))
+            print("[READ]")
 
     def commit(self, *args: Data):
         for i in range(len(args)):
@@ -153,6 +155,7 @@ class MultiversionWriteQuery(MultiversionQuery, WriteQuery):
             data = args[i]
             multiversionAccess = self.multiversionAccesses[i]
             multiversionAccess.write(data.getValue(), timestamp)
+            print("[WRITE]")
 
     def commit(self, *args: Data):
         for i in range(len(args)):
@@ -166,23 +169,38 @@ class MultiversionFunctionQuery(MultiversionQuery, FunctionQuery):
         self.function = kwargs.get("function", lambda *args: args[0])
 
     def execute(self, timestamp: int, *args: Data) -> None:
-        super().execute(*args)
+        value: List[int] = []
+        for data in args:
+            value.append(data.getValue())
+        args[0].setValue(self.function(*value))
+
+        print("[FUNCTION]")
 
     def commit(self, *args: Data) -> None:
-        super().execute(*args)
+        value: List[int] = []
+        for data in args:
+            value.append(data.getValue())
+        args[0].setValue(self.function(*value))
 
 
-class MultiversionDisplayQuery(MultiversionQuery, FunctionQuery):
+class MultiversionDisplayQuery(MultiversionQuery, DisplayQuery):
     def __init__(self, *args: str, **kwargs: Callable[..., int]) -> None:
         super().__init__(*args)
         self.function = kwargs.get("function", lambda *args: args)
 
     def execute(self, timestamp: int, *args: Data) -> None:
-        # Do nothing
-        pass
+        print("[DISPLAY]")
 
     def commit(self, *args: Data) -> None:
-        super().execute(*args)
+        value: List[int] = []
+        for data in args:
+            value.append(data.getValue())
+
+        result = self.function(*value)
+        if type(result) is tuple:
+            print(" ".join(map(str, result)))
+        if type(result) is int:
+            print(result)
 
 
 class MultiversionTransaction(Transaction):
@@ -236,13 +254,12 @@ class MultiversionTransaction(Transaction):
 
 
 class MultiversionControl(ConcurrencyControl):
-    def __init__(self, listOfTransaction: List[Transaction], schedule: List[int]) -> None:
+    def __init__(self, listOfTransaction: List[MultiversionTransaction], schedule: List[int]) -> None:
         super().__init__(listOfTransaction, schedule)
 
     def run(self):
         tempSchedule: List[int] = [timestamp for timestamp in self.schedule]
         activeTimestamp: List[int] = []
-        counter = 0
 
         while tempSchedule:
             currentTimestamp = tempSchedule.pop(0)
@@ -251,7 +268,9 @@ class MultiversionControl(ConcurrencyControl):
                 activeTimestamp.append(currentTimestamp)
                 print(f"[BEGIN TRANSACTION {currentTimestamp}]")
 
-            transaction = self.getTransaction(currentTimestamp)
+            transaction: MultiversionTransaction = self.getTransaction(
+                currentTimestamp
+            )
 
             if transaction.isFinished():
                 try:
@@ -268,8 +287,7 @@ class MultiversionControl(ConcurrencyControl):
                     activeTimestamp = list(filter(
                         lambda X: X != currentTimestamp, activeTimestamp
                     ))
-                    newTimestamp = currentTimestamp + \
-                        counter + len(activeTimestamp)
+                    newTimestamp = max(activeTimestamp) + 1
 
                     print(f"[ROLLBACK TRANSACTION {currentTimestamp}]")
                     transaction.rollback(newTimestamp)
@@ -280,5 +298,3 @@ class MultiversionControl(ConcurrencyControl):
 
             else:
                 transaction.nextQuery()
-
-            counter += 1

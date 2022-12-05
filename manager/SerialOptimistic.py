@@ -42,11 +42,13 @@ class SerialOptimisticTransaction(Transaction):
 
         if type(currentQuery) is DisplayQuery:
             print(
-                f"[DISPLAY: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]")
+                f"[DISPLAY: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]"
+            )
 
         if type(currentQuery) is FunctionQuery:
             print(
-                f"[FUNCTION: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]")
+                f"[FUNCTION: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]"
+            )
 
         super().nextQuery()
 
@@ -73,7 +75,11 @@ class SerialOptimisticControl(ConcurrencyControl):
                 activeTimestamp.append(currentTimestamp)
                 print(f"[BEGIN TRANSACTION {currentTimestamp}]")
 
-            transaction = self.getTransaction(currentTimestamp)
+            transaction: SerialOptimisticTransaction = self.getTransaction(
+                currentTimestamp
+            )
+
+            transaction.nextQuery()
 
             if transaction.isFinished():
                 valid = all(transaction.validationTest(
@@ -97,7 +103,7 @@ class SerialOptimisticControl(ConcurrencyControl):
                         lambda X: X != currentTimestamp, activeTimestamp
                     ))
                     newTimestamp = currentTimestamp + \
-                        counter + len(activeTimestamp)
+                        counter + len(tempSchedule)
 
                     print(f"[ROLLBACK TRANSACTION {currentTimestamp}]")
                     transaction.rollback(newTimestamp)
@@ -105,7 +111,5 @@ class SerialOptimisticControl(ConcurrencyControl):
                     tempSchedule.extend(
                         newTimestamp for _ in range(transaction.getLength())
                     )
-            else:
-                transaction.nextQuery()
 
             counter += 1

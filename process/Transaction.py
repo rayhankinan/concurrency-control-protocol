@@ -21,7 +21,7 @@ class Transaction:
         return self.listOfQuery[self.queryIndex]
 
     def isFinished(self) -> bool:
-        return self.queryIndex == self.getLength() - 1
+        return self.queryIndex == self.getLength()
 
     def nextQuery(self) -> None:
         self.queryIndex += 1
