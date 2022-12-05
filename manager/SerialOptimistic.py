@@ -61,9 +61,6 @@ class SerialOptimisticControl(ConcurrencyControl):
     def __init__(self, listOfTransaction: List[SerialOptimisticTransaction], schedule: List[int]) -> None:
         super().__init__(listOfTransaction, schedule)
 
-    def getStartTransaction(self, startTimestamp: int) -> SerialOptimisticTransaction:
-        return super().getTransaction(startTimestamp)
-
     def run(self):
         tempSchedule: List[int] = [timestamp for timestamp in self.schedule]
         activeTimestamp: List[int] = []
@@ -86,7 +83,8 @@ class SerialOptimisticControl(ConcurrencyControl):
 
                 if valid:
                     print(
-                        f"[COMMIT TRANSACTION {transaction.getStartTimestamp()}]")
+                        f"[COMMIT TRANSACTION {transaction.getStartTimestamp()}]"
+                    )
                     print("RESULT:")
                     transaction.commit()
                     transaction.endTimestamp = currentTimestamp + counter
@@ -105,7 +103,8 @@ class SerialOptimisticControl(ConcurrencyControl):
                     transaction.rollback(newTimestamp)
 
                     tempSchedule.extend(
-                        newTimestamp for _ in range(transaction.getLength()))
+                        newTimestamp for _ in range(transaction.getLength())
+                    )
             else:
                 transaction.nextQuery()
 
