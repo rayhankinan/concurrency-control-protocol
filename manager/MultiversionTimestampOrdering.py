@@ -1,9 +1,10 @@
-from typing import List
+from typing import Callable, Dict, List
+import inspect
 import math
 
 from manager.ConcurrencyControl import ConcurrencyControl
 from process.Transaction import Transaction
-from process.Query import Query
+from process.Query import Query, ReadQuery, WriteQuery, DisplayQuery, FunctionQuery
 from process.FileAccess import FileAccess
 from process.Data import Data
 
@@ -34,73 +35,114 @@ class Multiversion(Data):
 
 
 class MultiversionAccess(FileAccess):
+    listOfVersion: Dict[str, List[Multiversion]] = dict()
+
     def __init__(self, filename: str) -> None:
         self.filename: str = filename
+        self.initialValue = super().read()
 
-    def read(self, listOfVersion: List[Multiversion], timestamp: int) -> int:
-        if len(listOfVersion) == 0:
-            file = open(self.filename, "rb")
-            content = file.read()
-            file.close()
-
-            result = int.from_bytes(content, byteorder="big", signed=False)
-
+    def read(self, timestamp: int) -> int:
+        if len(MultiversionAccess.listOfVersion[self.filename]) == 0:
             multiversion = Multiversion()
-            multiversion.setValue(result)
+            multiversion.setValue(self.initialValue)
             multiversion.setWriteTimestamp(0)
             multiversion.setReadTimestamp(timestamp)
-            listOfVersion.append(multiversion)
+            MultiversionAccess.listOfVersion[self.filename].append(
+                multiversion
+            )
 
-            return result
+            return self.initialValue
 
         else:
             index = 0
 
-            for i in range(len(listOfVersion)):
-                if listOfVersion[i].writeTimestamp <= timestamp:
+            for i in range(len(MultiversionAccess.listOfVersion[self.filename])):
+                if MultiversionAccess.listOfVersion[self.filename][i].writeTimestamp <= timestamp:
                     index = i
                 else:
                     break
 
-            if listOfVersion[index].readTimestamp < timestamp:
-                listOfVersion[index].readTimestamp = timestamp
+            if MultiversionAccess.listOfVersion[self.filename][index].readTimestamp < timestamp:
+                MultiversionAccess.listOfVersion[self.filename][index].readTimestamp = timestamp
 
-            return listOfVersion[index].getValue()
+            return MultiversionAccess.listOfVersion[self.filename][index].getValue()
 
-    def write(self, value: int, listOfVersion: List[Multiversion], timestamp: int) -> None:
-        if len(listOfVersion) == 0:
+    def write(self, value: int, timestamp: int) -> None:
+        if len(MultiversionAccess.listOfVersion[self.filename]) == 0:
             multiversion = Multiversion()
             multiversion.setValue(value)
             multiversion.setWriteTimestamp(timestamp)
             multiversion.setReadTimestamp(0)
-            listOfVersion.append(multiversion)
+            MultiversionAccess.listOfVersion[self.filename].append(
+                multiversion
+            )
 
-            file = open(self.filename, "wb")
-
-            length = math.ceil(value / (1 << 8))
-            content = value.to_bytes(length, byteorder="big", signed=False)
-            file.write(content)
-
-            file.close()
         else:
             index = 0
 
-            for i in range(len(listOfVersion)):
-                if listOfVersion[i].writeTimestamp <= timestamp:
+            for i in range(len(MultiversionAccess.listOfVersion[self.filename])):
+                if MultiversionAccess.listOfVersion[self.filename][i].writeTimestamp <= timestamp:
                     index = i
                 else:
                     break
 
-            if timestamp < listOfVersion[index].readTimestamp:
+            if timestamp < MultiversionAccess.listOfVersion[self.filename][index].readTimestamp:
                 return -1
-            elif timestamp == listOfVersion[index].readTimestamp:
-                listOfVersion[index] = value
+            elif timestamp == MultiversionAccess.listOfVersion[self.filename][index].readTimestamp:
+                MultiversionAccess.listOfVersion[self.filename][index] = value
             else:
                 multiversion = Multiversion()
                 multiversion.setValue(value)
                 multiversion.setWriteTimestamp(timestamp)
                 multiversion.setReadTimestamp(0)
-                listOfVersion.append(multiversion)
+                MultiversionAccess.listOfVersion[self.filename].append(
+                    multiversion
+                )
+
+    def commit(self):
+        if len(MultiversionAccess.listOfVersion[self.filename]) == 0:
+            # Do nothing
+            pass
+        else:
+            multiversion = MultiversionAccess.listOfVersion[self.filename][-1]
+            value = multiversion.getValue()
+            super().write(value)
+
+
+class MultiversionReadQuery(ReadQuery):
+    def __init__(self, *args: str) -> None:
+        super().__init__(*args)
+
+        self.multiversionAccesses: List[MultiversionAccess] = []
+
+        for filename in args:
+            self.multiversionAccesses.append(MultiversionAccess(filename))
+
+    def execute(self, timestamp: int, *args: Data) -> None:
+        for i in range(len(args)):
+            data = args[i]
+            multiversionAccess = self.multiversionAccesses[i]
+            data.setValue(multiversionAccess.read(timestamp))
+
+
+class MultiversionWriteQuery(WriteQuery):
+    def __init__(self, *args: str) -> None:
+        super().__init__(*args)
+
+        self.multiversionAccesses: List[MultiversionAccess] = []
+
+        for filename in args:
+            self.multiversionAccesses.append(MultiversionAccess(filename))
+
+    def execute(self, timestamp: int, *args: Data) -> None:
+        for i in range(len(args)):
+            data = args[i]
+            multiversionAccess = self.multiversionAccesses[i]
+            multiversionAccess.write(data.getValue(), timestamp)
+
+
+class MultiversionTransaction(Transaction):
+    pass
 
 
 class MultiversionControl(ConcurrencyControl):
