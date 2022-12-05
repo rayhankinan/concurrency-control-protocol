@@ -11,8 +11,10 @@ if __name__ == "__main__":
 
     T26 = SerialOptimisticTransaction(26, [
         ReadQuery("binary/B"),
+        DisplayQuery("binary/B"),
         FunctionQuery("binary/B", function=lambda B: B + 50),
         ReadQuery("binary/A"),
+        DisplayQuery("binary/A"),
         FunctionQuery("binary/A", function=lambda A: A + 50),
         WriteQuery("binary/B"),
         WriteQuery("binary/A")

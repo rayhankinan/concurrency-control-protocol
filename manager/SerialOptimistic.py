@@ -8,8 +8,8 @@ from process.Query import Query, ReadQuery, WriteQuery, FunctionQuery, DisplayQu
 
 
 class SerialOptimisticTransaction(Transaction):
-    def __init__(self, timestamp: int, listOfQuery: List[Query]) -> None:
-        super().__init__(timestamp, listOfQuery)
+    def __init__(self, startTimestamp: int, listOfQuery: List[Query]) -> None:
+        super().__init__(startTimestamp, listOfQuery)
 
         # Menambahkan end timestamp
         self.endTimestamp: int = sys.maxsize
@@ -18,30 +18,17 @@ class SerialOptimisticTransaction(Transaction):
         self.dataItemWritten: Set[str] = set()
         self.dataItemRead: Set[str] = set()
 
-        # Melakukan sorting pada list of query sehingga read query dan function query di depan serta write query dan display query di belakang
-        for i in range(1, self.getLength()):
-            j = i - 1
-            key = self.listOfQuery[i]
-
-            while j >= 0 and (type(key) is ReadQuery or type(key) is FunctionQuery) and (type(self.listOfQuery[j]) is WriteQuery or type(self.listOfQuery[j]) is DisplayQuery):
-                self.listOfQuery[j + 1] = self.listOfQuery[j]
-                j -= 1
-            self.listOfQuery[j + 1] = key
-
-    def getEnd(self) -> int:
-        return self.endTimestamp
-
     # TODO: Rollback Bug
     def validationTest(self, counterTimestamp: int, other: SerialOptimisticTransaction) -> bool:
-        if self.timestamp <= other.timestamp:
+        if self.startTimestamp <= other.startTimestamp:
             return True
-        if self.timestamp >= other.endTimestamp:
+        if self.startTimestamp >= other.endTimestamp:
             return True
-        if self.timestamp < other.endTimestamp and counterTimestamp >= other.endTimestamp and self.dataItemRead.intersection(other.dataItemWritten) == set():
+        if self.startTimestamp < other.endTimestamp and counterTimestamp >= other.endTimestamp and self.dataItemRead.intersection(other.dataItemWritten) == set():
             return True
         return False
 
-    def executeCurrentQuery(self) -> None:
+    def nextQuery(self) -> None:
         if type(self.getCurrentQuery()) is WriteQuery:
             for filename in self.getCurrentQuery().getFileNames():
                 self.dataItemWritten.add(filename)
@@ -49,10 +36,11 @@ class SerialOptimisticTransaction(Transaction):
             for filename in self.getCurrentQuery().getFileNames():
                 self.dataItemRead.add(filename)
 
-        super().executeCurrentQuery()
+        super().nextQuery()
 
-    def reset(self, newTimestamp: int) -> None:
-        super().reset(newTimestamp)
+    def rollback(self, newTimestamp: int) -> None:
+        super().rollback(newTimestamp)
+
         self.dataItemWritten = set()
         self.dataItemRead = set()
 
@@ -61,8 +49,8 @@ class SerialOptimisticControl(ConcurrencyControl):
     def __init__(self, listOfTransaction: List[SerialOptimisticTransaction], schedule: List[int]) -> None:
         super().__init__(listOfTransaction, schedule)
 
-    def getTransaction(self, timestamp: int) -> SerialOptimisticTransaction:
-        return super().getTransaction(timestamp)
+    def getStartTransaction(self, startTimestamp: int) -> SerialOptimisticTransaction:
+        return super().getTransaction(startTimestamp)
 
     def run(self):
         tempSchedule: List[int] = [timestamp for timestamp in self.schedule]
@@ -97,16 +85,17 @@ class SerialOptimisticControl(ConcurrencyControl):
 
                     newTimestamp = currentTimestamp + \
                         counter + len(activeTimestamp)
-                    transaction.reset(newTimestamp)
+                    transaction.rollback(newTimestamp)
                     tempSchedule.extend(
                         newTimestamp for _ in range(transaction.getLength())
                     )
                 else:
-                    transaction.executeCurrentQuery()
+                    transaction.nextQuery()
             else:
-                transaction.executeCurrentQuery()
+                transaction.nextQuery()
 
-            if transaction.isFinishedExecuting():
+            if transaction.isFinished():
+                transaction.commit()
                 transaction.endTimestamp = currentTimestamp + counter
 
             counter += 1
