@@ -33,20 +33,20 @@ class SerialOptimisticTransaction(Transaction):
         if type(currentQuery) is WriteQuery:
             for filename in currentQuery.getFileNames():
                 self.dataItemWritten.add(filename)
-                print(f"WRITE: {filename}")
+                print(f"[WRITE: {filename}]")
 
         if type(currentQuery) is ReadQuery:
             for filename in currentQuery.getFileNames():
                 self.dataItemRead.add(filename)
-                print(f"READ: {filename}")
+                print(f"[READ: {filename}]")
 
         if type(currentQuery) is DisplayQuery:
             print(
-                f"DISPLAY: {inspect.getsource(currentQuery.function).replace(',', '').strip()}")
+                f"[DISPLAY: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]")
 
         if type(currentQuery) is FunctionQuery:
             print(
-                f"FUNCTION: {inspect.getsource(currentQuery.function).replace(',', '').strip()}")
+                f"[FUNCTION: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]")
 
         super().nextQuery()
 
@@ -74,6 +74,7 @@ class SerialOptimisticControl(ConcurrencyControl):
 
             if currentTimestamp not in activeTimestamp:
                 activeTimestamp.append(currentTimestamp)
+                print(f"[BEGIN TRANSACTION {currentTimestamp}]")
 
             transaction = self.getTransaction(currentTimestamp)
 
@@ -84,6 +85,9 @@ class SerialOptimisticControl(ConcurrencyControl):
                 ) for timestamp in activeTimestamp)
 
                 if valid:
+                    print(
+                        f"[COMMIT TRANSACTION {transaction.getStartTimestamp()}]")
+                    print("RESULT:")
                     transaction.commit()
                     transaction.endTimestamp = currentTimestamp + counter
 
@@ -97,7 +101,7 @@ class SerialOptimisticControl(ConcurrencyControl):
                     newTimestamp = currentTimestamp + \
                         counter + len(activeTimestamp)
 
-                    print(f"ROLLBACK : {currentTimestamp}")
+                    print(f"[ROLLBACK TRANSACTION {currentTimestamp}]")
                     transaction.rollback(newTimestamp)
 
                     tempSchedule.extend(
