@@ -1,4 +1,4 @@
-# TODO: Dapat dilakukan migrate dengan framework yg telah digunakan
+# TODO: Dapat dilakukan migrate dengan framework yg telah dibuat
 
 class SimpleLockingControl():
     def __init__(self, schedule):

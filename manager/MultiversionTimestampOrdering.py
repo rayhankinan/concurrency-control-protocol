@@ -40,9 +40,6 @@ class MultiversionAccess(FileAccess):
         self.filename: str = filename
         self.initialValue = super().read()
 
-    def refresh(self):
-        self.initialValue = super().read()
-
     def read(self, timestamp: int) -> int:
         if len(MultiversionAccess.listOfVersion.setdefault(self.filename, [])) == 0:
             multiversion = Multiversion()
