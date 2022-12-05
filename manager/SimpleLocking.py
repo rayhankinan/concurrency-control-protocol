@@ -15,13 +15,22 @@ class SimpleLockingControl():
         
     def unlock(self, transactionId, dataItem):
         if self.lockTable[dataItem] == transactionId:
-            self.lockTable.pop(dataItem)
+            self.lockTable[dataItem] = None
+            return True
+        else:
+            return False
 
     def hasLock(self, transactionId, dataItem):
         if dataItem in self.lockTable:
             return self.lockTable[dataItem] == transactionId
         else:
             return False
+
+    def getTransactionId(self, operation):
+        return operation[1:operation.find("(")] if operation[0] != 'C' else operation[1:]
+
+    def getDataItem(self, operation):
+        return operation[operation.find("(") + 1:operation.find(")")] if operation[0] != 'C' else None
 
     def printState(self):
         print (f"{'Schedule':20} : {self.schedule}")
@@ -39,8 +48,8 @@ class SimpleLockingControl():
             if verbose:
                 print (f"{'Operation':20} : {operation}")
             if operation[0] == 'R' or operation[0] == 'W':
-                transactionId = operation[1]
-                dataItem = operation[3]
+                transactionId = self.getTransactionId(operation)
+                dataItem = self.getDataItem(operation)
                 if self.hasLock(transactionId, dataItem):
                     self.finalSchedule.append(operation)
                 else:
@@ -52,19 +61,18 @@ class SimpleLockingControl():
                         temp = []
                         temp.append(operation)
                         for op in self.schedule:
-                            if op[1] == transactionId:
+                            if self.getTransactionId(op) == transactionId:
                                 temp.append(op)
                         for op in temp[1:]:
                             self.schedule.remove(op)
                         self.waitingQueue += temp
 
             if operation[0] == 'C':
-                transactionId = operation[1]
+                transactionId = self.getTransactionId(operation)
                 # remove all locks for the transaction
                 self.finalSchedule.append(operation)
                 for dataItem in self.lockTable:
-                    if self.lockTable[dataItem] == transactionId:
-                        self.lockTable[dataItem] = None
+                    if self.unlock(transactionId, dataItem):
                         self.finalSchedule.append('U' + transactionId + '(' + dataItem + ')')
                 # remove all operations for the transaction from the waiting queue and add them in front of the schedule
                 while len(self.waitingQueue) > 0:
