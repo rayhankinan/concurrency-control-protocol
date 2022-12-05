@@ -27,8 +27,9 @@ class Transaction:
         self.queryIndex += 1
 
     def rollback(self, newTimestamp) -> None:
-        self.queryIndex = 0
         self.startTimestamp = newTimestamp
+        self.queryIndex = 0
+        self.dictData: Dict[str, Data] = dict()
 
     def commit(self) -> None:
         for i in range(self.getLength()):

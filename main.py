@@ -6,8 +6,10 @@ if __name__ == "__main__":
     T25 = MultiversionTransaction(25, [
         ReadQuery("binary/B"),
         DisplayQuery("binary/B", function=lambda B: B),
+        WriteQuery("binary/B"),
         ReadQuery("binary/A"),
         DisplayQuery("binary/A", function=lambda A: A),
+        WriteQuery("binary/A")
     ])
 
     T26 = MultiversionTransaction(26, [
@@ -25,7 +27,7 @@ if __name__ == "__main__":
 
     concurrencyManager = MultiversionControl(
         [T25, T26],
-        [25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 25, 25]
+        [25, 25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 25, 25, 25]
     )
 
     concurrencyManager.run()

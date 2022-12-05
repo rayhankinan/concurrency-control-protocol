@@ -1,4 +1,5 @@
 from typing import Callable, Dict, List
+import inspect
 
 from manager.ConcurrencyControl import ConcurrencyControl
 from process.Transaction import Transaction
@@ -37,6 +38,9 @@ class MultiversionAccess(FileAccess):
 
     def __init__(self, filename: str) -> None:
         self.filename: str = filename
+        self.initialValue = super().read()
+
+    def refresh(self):
         self.initialValue = super().read()
 
     def read(self, timestamp: int) -> int:
@@ -138,7 +142,6 @@ class MultiversionReadQuery(MultiversionQuery, ReadQuery):
             data = args[i]
             multiversionAccess = self.multiversionAccesses[i]
             data.setValue(multiversionAccess.read(timestamp))
-            print("[READ]")
 
     def commit(self, timestamp: int, *args: Data):
         for i in range(len(args)):
@@ -161,7 +164,6 @@ class MultiversionWriteQuery(MultiversionQuery, WriteQuery):
             data = args[i]
             multiversionAccess = self.multiversionAccesses[i]
             multiversionAccess.write(data.getValue(), timestamp)
-            print("[WRITE]")
 
     def commit(self, timestamp: int, *args: Data):
         for i in range(len(args)):
@@ -182,8 +184,6 @@ class MultiversionFunctionQuery(MultiversionQuery, FunctionQuery):
             value.append(data.getValue())
         args[0].setValue(self.function(*value))
 
-        print("[FUNCTION]")
-
     def commit(self, timestamp: int, *args: Data) -> None:
         value: List[int] = []
         for data in args:
@@ -197,7 +197,7 @@ class MultiversionDisplayQuery(MultiversionQuery, DisplayQuery):
         self.function = kwargs.get("function", lambda *args: args)
 
     def execute(self, timestamp: int, *args: Data) -> None:
-        print("[DISPLAY]")
+        pass
 
     def commit(self, timestamp: int, *args: Data) -> None:
         value: List[int] = []
@@ -249,7 +249,54 @@ class MultiversionTransaction(Transaction):
 
         currentQuery.execute(self.getStartTimestamp(), *currentData)
 
+        if type(currentQuery) is MultiversionWriteQuery:
+            for filename in currentQuery.getFileNames():
+                print(f"[WRITE: {filename}]")
+
+        if type(currentQuery) is MultiversionReadQuery:
+            for filename in currentQuery.getFileNames():
+                print(f"[READ: {filename}]")
+
+        if type(currentQuery) is MultiversionDisplayQuery:
+            print(
+                f"[DISPLAY: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]"
+            )
+
+        if type(currentQuery) is MultiversionFunctionQuery:
+            print(
+                f"[FUNCTION: {inspect.getsource(currentQuery.function).replace(',', '').strip()}]"
+            )
+
         super().nextQuery()
+
+    def rollback(self, newTimestamp) -> None:
+        newListOfQuery: List[MultiversionQuery] = []
+
+        for query in self.listOfQuery:
+            if type(query) is MultiversionReadQuery:
+                newListOfQuery.append(
+                    MultiversionReadQuery(*query.getFileNames())
+                )
+            elif type(query) is MultiversionWriteQuery:
+                newListOfQuery.append(
+                    MultiversionWriteQuery(*query.getFileNames())
+                )
+            elif type(query) is MultiversionFunctionQuery:
+                newListOfQuery.append(
+                    MultiversionFunctionQuery(
+                        *query.getFileNames(), function=query.function)
+                )
+            elif type(query) is MultiversionDisplayQuery:
+                newListOfQuery.append(
+                    MultiversionDisplayQuery(
+                        *query.getFileNames(), function=query.function)
+                )
+            else:
+                raise Exception("TYPE INVALID")
+
+        self.listOfQuery = newListOfQuery
+
+        super().rollback(newTimestamp)
 
     def commit(self) -> None:
         MultiversionAccess.listOfVersion.clear()
