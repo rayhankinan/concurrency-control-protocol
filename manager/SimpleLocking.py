@@ -2,12 +2,11 @@ class SimpleLockingControl():
     def __init__(self, schedule):
         self.schedule = schedule # example ['R1(X)', 'W2(X)', 'W2(Y)', 'W3(Y)', 'W1(X)', 'C1', 'C2', 'C3']
         self.lockTable = {} # key = data item, value = transaction that has the lock for that data item, example: {'X': '1', 'Y': '2'}
-        self.waitingQueue = [] # example: ['R1(X)', 'W2(X)', 'W2(Y)', 'W3(Y)', 'W1(X)', 'C1', 'C2', 'C3']
-        self.finalSchedule = [] # example: ['R1(X)', 'W2(X)', 'W2(Y)', 'W3(Y)', 'W1(X)', 'C1', 'C2', 'C3']
+        self.waitingQueue = []
+        self.finalSchedule = []
         self.previousWaitingQueue = []
 
     def lock(self, transactionId, dataItem):
-        # add the lock to the lock table
         if dataItem in self.lockTable and self.lockTable[dataItem] != transactionId and self.lockTable[dataItem] != None:      
             return False
         else:
@@ -15,7 +14,6 @@ class SimpleLockingControl():
             return True
         
     def unlock(self, transactionId, dataItem):
-        # remove the lock from the lock table
         if self.lockTable[dataItem] == transactionId:
             self.lockTable.pop(dataItem)
 
@@ -26,12 +24,12 @@ class SimpleLockingControl():
             return False
 
     def printState(self):
-        # print with a nice format the current state of the schedule
         print (f"{'Schedule':20} : {self.schedule}")
         print (f"{'Lock Table':20} : {self.lockTable}")
         print (f"{'Waiting Queue':20} : {self.waitingQueue}")
         print (f"{'Final Schedule':20} : {self.finalSchedule}")
         print ()
+
     def run(self, verbose=False):
         if verbose:
             self.printState()
@@ -100,9 +98,27 @@ if __name__ == '__main__':
     sampleInput3 = [x.strip() for x in sampleInput3]
     sampleInput3 = [x for x in sampleInput3 if x != ""]
 
-    print(f"{'Input':20} : {sampleInput3}")
+    print("Select input type:")
+    print("1. From a file")
+    print("2. From terminal")
 
-    control = SimpleLockingControl(sampleInput3)
+    userInput = ""
+    choice = input("Enter your choice: ")
+    if choice == "1":
+        filename = input("Enter the file name: ")
+        with open(filename, 'r') as f:
+            userInput = f.read()
+    elif choice == "2":
+        userInput = input("Enter the input: ")
+    userInput = userInput.split(";")
+    userInput = [x.strip() for x in userInput]
+    userInput = [x for x in userInput if x != ""]
+
+
+
+    print(f"{'User input':20} : {userInput}")
+
+    control = SimpleLockingControl(userInput)
     try:
         control.run()
         print(f"{'Final Schedule':20} : {control.finalSchedule}")
