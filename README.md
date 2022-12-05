@@ -2,7 +2,7 @@
 
 ## Description
 
-This is a project for the course "Database Management" at Bandung Institute of Technology. The project is about implementing a concurrency control protocol for a database management system. There are 3 protocols implemented in this project, which are Simple locking protocol, OCC, and MVCC. The project is implemented in Python 3.
+This is a project for the course "Database Management" at Bandung Institute of Technology. The project is about implementing a concurrency control protocol for a database management system. There are 3 protocols implemented in this project, which are Simple Locking Protocol, OCC, and MVCC. The project is implemented in Python 3.
 
 ## Requirements
 
