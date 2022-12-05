@@ -38,8 +38,8 @@ This is a project for the course "Database Management" at Bandung Institute of T
 
 ### OCC
 1. Navigate to the directory of the project
-2. Open the `main.py` and edit your own transaction and schedule
-3. To use Optimistic Concurrency Control Algorithm, please use `SerialOptimisticTransaction` for transaction class and `SerialOptimisticControl` for concurrency control class
+2. Open the `main.py` and edit your own transaction and schedule by using `Query` for defining operation
+3. To run Optimistic Concurrency Control Algorithm, please use `SerialOptimisticTransaction` for transaction class and `SerialOptimisticControl` for concurrency control class
 4. Run the following command
    ```
    python main.py
@@ -47,8 +47,8 @@ This is a project for the course "Database Management" at Bandung Institute of T
 5. The program will output the serializable schedule on the terminal
 ### MVCC
 1. Navigate to the directory of the project
-2. Open the `main.py` and edit your own transaction and schedule
-3. To use Optimistic Concurrency Control Algorithm, please use `MultiversionTransaction` for transaction class and `MultiversionControl` for concurrency control class
+2. Open the `main.py` and edit your own transaction and schedule by using `Query` for defining operation
+3. To run Optimistic Concurrency Control Algorithm, please use `MultiversionTransaction` for transaction class and `MultiversionControl` for concurrency control class
 4. Run the following command
    ```
    python main.py
