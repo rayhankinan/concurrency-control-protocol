@@ -113,6 +113,11 @@ if __name__ == '__main__':
     userInput = userInput.split(";")
     userInput = [x.strip() for x in userInput]
     userInput = [x for x in userInput if x != ""]
+    verbose = input("Verbose? (y/n): ")
+    if verbose == "y":
+        verbose = True
+    else:
+        verbose = False
 
 
 
@@ -120,7 +125,7 @@ if __name__ == '__main__':
 
     control = SimpleLockingControl(userInput)
     try:
-        control.run()
+        control.run(verbose)
         print(f"{'Final Schedule':20} : {control.finalSchedule}")
     except Exception as e:
         print (e)
